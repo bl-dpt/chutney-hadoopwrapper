@@ -1,0 +1,19 @@
+<tool>
+<!-- Input file name, note this can be set to any value and the value will be replaced in 
+	the command line and output filename -->
+<input val="1">%input%.ImageProfile.feat.xml.gz</input>
+<input val="2">%input%.jp2.ImageProfile.feat.xml.gz</input>
+<!-- these need to be here so comparison will work -->
+<input val="3">%input%</input>
+<input val="4">%input%.jp2</input>
+<!-- Desired output name, here based on the input name.  If tool has fixed outputs define them here -->
+<output val="1">%input%.profcomp.xml</output>
+<!-- If the tool outputs data to stdout then set this here to put the data in the output file 
+	note: this will write output to the first defined output file -->
+<redirectstdouttooutput>true</redirectstdouttooutput>
+<!-- Library path to add to run the tool -->
+<librarypath>LD_LIBRARY_PATH=/home/will/local/lib</librarypath>
+<!-- Command line to execute, note values here are replaced by filenames at execution -->
+<command>/home/will/local/bin/compare %input1% %input2%</command>
+</tool>
+

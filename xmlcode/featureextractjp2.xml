@@ -1,0 +1,15 @@
+<tool>
+<!-- Input file name, note this can be set to any value and the value will be replaced in 
+	the command line and output filename -->
+<input val="1">%input%.jp2</input>
+<!-- Desired output name, here based on the input name.  If tool has fixed outputs define them here -->
+<output val="1">%input%.jp2.SIFTComparison.feat.xml.gz</output>
+<output val="2">%input%.jp2.ImageProfile.feat.xml.gz</output>
+<output val="3">%input%.jp2.ImageHistogram.feat.xml.gz</output>
+<output val="4">%input%.jp2.ImageMetadata.feat.xml.gz</output>
+<!-- Library path to add to run the tool -->
+<librarypath>LD_LIBRARY_PATH=/home/will/local/lib</librarypath>
+<!-- Command line to execute, note values here are replaced by filenames at execution -->
+<command>/home/will/local/bin/extractfeatures %input1%</command>
+</tool>
+

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+<comment>British Library JPEG2000 Profile</comment>
+<entry key="numberOfTiles">1</entry>
+<entry key="order">RPCL</entry>
+<entry key="codeBlockSize">64</entry>
+<entry key="eph">yes</entry>
+<entry key="precincts">256,256,128,128,128,128</entry>
+<entry key="sop">yes</entry>
+<entry key="transformation">irreversible</entry>
+<entry key="codingBypass">no</entry>
+<entry key="levels">6</entry>
+<entry key="compressionRates">1.0,2.4,2.75,3.4,4.6,7.0,11.25,20.0,40.0,80.0,160.0,320.0</entry>
+</properties>
