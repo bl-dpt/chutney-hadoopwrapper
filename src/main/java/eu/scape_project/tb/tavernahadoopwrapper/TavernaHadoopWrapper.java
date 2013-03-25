@@ -539,6 +539,8 @@ public class TavernaHadoopWrapper extends Configured implements Tool  {
 		
 		//set the number of maps to use (default is 2)
 		conf.setNumMapTasks(maps);
+		//we only want one reduce task
+		conf.setNumReduceTasks(1);
 		
 		try {
 			JobClient.runJob(conf);
