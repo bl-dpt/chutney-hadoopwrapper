@@ -142,11 +142,12 @@ public class XMLWorkflowReport implements HadoopJob {
 		} 
 		boolean matchbox = false;
 		boolean ssimMatch = false;
-		file = fileTracker.getKeyFile()+WrapperSettings.MATCHBOX_COMP_SIFT_EXT;
+		file = fileTracker.getKeyFile()+WrapperSettings.MATCHBOX_EXT_SIFTCOMPARISON;
 		if(generatedFiles.contains(file)) {
 			matchbox = true;
+			String compFile = fileTracker.getKeyFile()+WrapperSettings.MATCHBOX_COMP_SIFT_EXT;
 			//note the following comparison (>0.9) is one used in Matchbox's MatchboxLib.py 
-			ssimMatch = Tools.getSSIMCompareVal(tempDir+file)>WrapperSettings.MATCHBOX_THRESHOLD;
+			if(fileTracker.exists(compFile)) { ssimMatch = Tools.getSSIMCompareVal(tempDir+compFile)>WrapperSettings.MATCHBOX_THRESHOLD; }
 		}
 		
 		BufferedWriter out = new BufferedWriter(new FileWriter(reportFile));

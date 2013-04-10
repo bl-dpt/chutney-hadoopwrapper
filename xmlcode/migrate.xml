@@ -7,6 +7,6 @@
 <!-- Library path to add to run the tool -->
 <librarypath>LD_LIBRARY_PATH=/home/will/local/lib</librarypath>
 <!-- Command line to execute, note values here are replaced by filenames at execution -->
-<command>/home/will/local/bin/image_to_j2k -i %input1% -o %output1% -I -p RPCL -n 6 -EPH -SOP -c [256,256],[256,256],[128,128],[128,128],[128,128],[128,128] -b 64,64 -M 1 -r 320.000,160.000,80.000,40.000,20.000,11.250,7.000,4.600,3.400,2.750,2.400,1.000</command>
+<command>/home/will/local/bin/image_to_j2k -i %input1% -o %output1% -I -p RPCL -n 6 -c [256,256],[256,256],[128,128],[128,128],[128,128],[128,128] -b 64,64 -r 320.000,160.000,80.000,40.000,20.000,11.250,7.000,4.600,3.400,2.750,2.400,1.000</command>
 </tool>
 
