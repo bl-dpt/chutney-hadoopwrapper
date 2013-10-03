@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 The SCAPE Project Consortium
+ * Copyright 2012-2013 The SCAPE Project Consortium
  * Author: William Palmer (William.Palmer@bl.uk)
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +14,7 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-package eu.scape_project.tb.tavernahadoopwrapper;
+package eu.scape_project.tb.chutney.jobs;
 
 import java.io.IOException;
 
@@ -25,7 +25,7 @@ import java.io.IOException;
  *
  */
 
-public interface HadoopJob {
+public interface ChutneyJob {
 
 	/**
 	 * Setup the job
@@ -65,6 +65,5 @@ public interface HadoopJob {
 	 * @return full path names to the input files
 	 */
 	public String[] getInputFiles();
-	
-	
+		
 }

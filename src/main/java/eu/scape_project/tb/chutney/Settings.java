@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 The SCAPE Project Consortium
+ * Copyright 2012-2013 The SCAPE Project Consortium
  * Author: William Palmer (William.Palmer@bl.uk)
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +15,7 @@
  *   limitations under the License.
  */
 
-package eu.scape_project.tb.tavernahadoopwrapper;
+package eu.scape_project.tb.chutney;
 
 /**
  * A class containing constants for use elsewhere in the code
@@ -23,20 +23,23 @@ package eu.scape_project.tb.tavernahadoopwrapper;
  * @author wpalmer
  *
  */
-public final class WrapperSettings {
+public final class Settings {
 
+	private Settings() {}
+	
 	/**
 	 * Username that will be used to run the code
 	 */
-	private static final String DEFAULT_USER = "dpt";
+	private static final String SYSTEM_USER = "dpt";
+	private static final String HDFS_USER = "wpalmer";
 	/**
 	 * Default home directory that contains binaries etc
 	 */
-	private static final String HOME_DIR = "/home/"+DEFAULT_USER+"/";
+	private static final String HOME_DIR = "/home/"+SYSTEM_USER+"/";
 	/**
 	 * Default home directory in Hadoop
 	 */
-	public static final String OUTPUT_DIR = "/user/"+DEFAULT_USER+"/";
+	public static final String OUTPUT_DIR = "/user/"+HDFS_USER+"/";
 	
 	/**
 	 * Directory in HDFS where files will be stored
@@ -47,12 +50,12 @@ public final class WrapperSettings {
 	/**
 	 * Default number of maps
 	 */
-	public static final int NUM_MAPS = 2;
+	//public static final int NUM_MAPS = 2;
 	
 	/**
 	 * Version number
 	 */
-	public static final double VERSION = 0.7;
+	public static final double VERSION = 0.8;
 	
 	//command line settings
 	/**
@@ -60,6 +63,10 @@ public final class WrapperSettings {
 	 */
 	//public static final String OPENJPEG_COMMAND = "/usr/bin/image_to_j2k";//use debian built in openjpeg
 	public static final String OPENJPEG_COMMAND = HOME_DIR+"/local/bin/image_to_j2k";//use openjpeg 1.5.1
+	/**
+	 * Path to the OpenJPEG j2k_to_image command
+	 */
+	public static final String OPENJPEG_EXPAND = HOME_DIR+"/local/bin/j2k_to_image";//use openjpeg 1.5.1
 	/**
 	 * Any hard coded options to pass to image_to_j2k
 	 */
@@ -90,7 +97,7 @@ public final class WrapperSettings {
 	 * Option to signify the output file is the next argument
 	 */
 	public static final String KAKADU_OUTPUT_FILE_OPT = "-o";
-	
+
 	//jpylyzer commands
 	/**
 	 * Path to the Jpylyzer binary
@@ -99,7 +106,9 @@ public final class WrapperSettings {
 	/**
 	 * Hard coded options to pass to Jpylyzer
 	 */
-	public static final String JPYLYZER_OPTIONS = "--verbose";
+	//the current version of the schematron checks fail if verbose is set due to not full xpath names
+	//in schematron.  therefore disable verbose output
+	public static final String JPYLYZER_OPTIONS = "";//"--verbose";
 	/**
 	 * Extension to add to extracted exif data
 	 */
@@ -170,6 +179,19 @@ public final class WrapperSettings {
 	 * Default PSNR threshold for a successful match
 	 */
 	public static final double PSNR_THRESHOLD = 48;	
+	/**
+	 * tifftopnm command for checking tiff data is readable
+	 */
+	public static final String TIFFTOPNM = "/usr/bin/tifftopnm";
+	
+	/**
+	 * Jar file containing Dissimilar
+	 */
+	public static final String DISSIMILAR_JAR = "/home/"+SYSTEM_USER+"/dissimilar-0.3-SNAPSHOT-jar-with-dependencies.jar";
+	/**
+	 * Extension for Dissimilar outputs
+	 */
+	public static final String DISSIMILAR_EXT = ".diss";
 	
 	//taverna command line settings
 	/**
@@ -179,7 +201,7 @@ public final class WrapperSettings {
 	/**
 	 * Path to the Taverna command line binary
 	 */
-	public static final String TAVERNA_COMMAND = HOME_DIR+"/SCAPE/taverna-commandline-2.4.0/executeworkflow.sh";
+	public static final String TAVERNA_COMMAND = HOME_DIR+"/taverna-commandline-2.4.0/executeworkflow.sh";
 	/**
 	 * Hard coded Taverna command line options
 	 */
@@ -201,28 +223,19 @@ public final class WrapperSettings {
 	
 	//shared Taverna settings
 	/**
-	 * Default Taverna workflow
+	 * Default Taverna workflow - this is a resource in the jar file
 	 */
-	public static final String TAVERNA_WORKFLOW = HOME_DIR+"/Workflows/HadoopUsingTaverna.t2flow";
+	public static final String TAVERNA_WORKFLOW = "HadoopUsingTaverna.t2flow";
 	//these are the port names as defined in the workflow file
 	/**
 	 * Default Taverna workflow input port name
 	 */
-	public static final String TAVERNA_WORKFLOW_INPUTFILEPORT = "inputTIFFFile";
-	/**
-	 * Default Taverna workflow output port name
-	 */
-	public static final String TAVERNA_WORKFLOW_OUTPUTFILEPORT = "inputOriginalName";
+	public static final String TAVERNA_WORKFLOW_INPUTFILEPORT = "inputOriginalName";
 	//output ports in the workflow - the case *must* match that in the workflow
 	/**
 	 * Output ports from the Taverna workflow 
 	 */
-	public static final String[] TAVERNA_WORKFLOW_OUTPUTPORTS = { "zip" };
-	
-	//public static final String TAVERNA_WORKFLOW = "/home/will/VMSharedFolder/Workflows/OpenJPEGConvert.t2flow";
-	//these are the port names as defined in the workflow file
-	//public static final String TAVERNA_WORKFLOW_INPUTFILEPORT = "local_input_file";
-	//public static final String TAVERNA_WORKFLOW_OUTPUTFILEPORT = "local_temp_file";
+	public static final String[] TAVERNA_WORKFLOW_OUTPUTPORTS = { "zip/1/1" };
 	
 	//settings for standalone class runs (i.e. tests) in each class
 	/**
@@ -238,15 +251,15 @@ public final class WrapperSettings {
 	/**
 	 * Default Hadoop job name
 	 */
-	public static final String JOB_NAME = "TavernaHadoopWrapper-";
+	public static final String JOB_NAME = "Chutney-";
 	/**
 	 * Location of the temporary directory to use for processing
 	 */
-	public static final String TMP_DIR = "/tmp/hadooptmp-5/";
+	public static final String TMP_DIR = "/tmp/hadooptmp-6/";
 	/**
 	 * Default buffer size to use when copying file data
 	 */
-	public static final int BUFSIZE = 32768;
+	public static final int BUFSIZE = 32768; //32k io buffer
 	/**
 	 * Types of job that can be run, a new entry should be added when using a new HadoopJob 
 	 * implementation
@@ -272,7 +285,7 @@ public final class WrapperSettings {
 	/**
 	 * Jpeg 2000 profile to use (make sure this is stored in jar)
 	 */
-	public static final String J2K_PROFILE = "test-data/bl_profile.xml";
+	//public static final String J2K_PROFILE = "test-data/bl_profile.xml";
 	/**
 	 * The regexp for a hash
 	 */
@@ -289,5 +302,14 @@ public final class WrapperSettings {
 	 * The NULL device
 	 */
 	public static final String NULL_DEVICE = "/dev/null";
+
+	/**
+	 * Schematron file to use with jp2check library
+	 */
+	public static final String SCHEMATRON = "openjpeg-schematron.sch";
+	/**
+	 * Compiled Schematron file to use with Taverna workflows
+	 */
+	public static final String SCHEMATRON_COMPILED = "openjpeg-schematron.sch.xsl";
 	
 }

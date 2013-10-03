@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 The SCAPE Project Consortium
+ * Copyright 2012-2013 The SCAPE Project Consortium
  * Author: William Palmer (William.Palmer@bl.uk)
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +14,7 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-package eu.scape_project.tb.tavernahadoopwrapper;
+package eu.scape_project.tb.chutney;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -56,95 +56,95 @@ public class FileTracker {
 	 * Directory in HDFS where files will be stored
 	 * -> move this to WrapperSettings?
 	 */
-	private String hdfsStorageDir = WrapperSettings.TRACKER_STORAGE_DIR;
+	private String gHdfsStorageDir = Settings.TRACKER_STORAGE_DIR;
 	/**
 	 * The local temporary directory to copy files to
 	 */
-	private String localTempDir = "";
+	private String gLocalTempDir = "";
 	/**
 	 * The key file for the workflow - this will be used as the basis for the
 	 * output directory.  i.e. input filename. 
 	 */
-	private String keyFile = "";
+	private String gKeyFile = "";
 	/**
 	 * Hash code of the keyfile
 	 */
-	private String hashCode = "";
+	private String gHashCode = "";
 	/**
 	 * List of files relating to the current keyfile that are in HDFS
 	 */
-	private List<String> hdfsFiles = null;
+	private List<String> gHdfsFiles = null;
 	/**
 	 * HDFS FileSystem reference
 	 */
-	private FileSystem fileSystem;
+	private FileSystem gFileSystem;
 
 	/**
 	 * If this is set, do nothing.  This allows use of the tracker class without it
 	 * being substantively created, by protecting access to methods. 
 	 */
-	private boolean doNothing = false;
+	private boolean gDoNothing = false;
 	
 	/**
 	 * Do nothing in this instance.  Need this to initialize a class so Eclipse stops 
 	 * complaining about it not being initialised, despite access being surrounded by checks.
 	 */
 	public FileTracker() {
-		doNothing = true;
+		gDoNothing = true;
 	}
 	
 	/**
 	 * Constructor to use when first creating a FileTracker - note that if this is
 	 * called more than once with the same file/hash pair it will re-use the existing
 	 * FileTracker data
-	 * @param tFileSystem HDFS file system for current job
-	 * @param tKeyFile name of the keyfile for the FileTracker
-	 * @param tHash hash of the keyfile
-	 * @param keyFileLoc the full HDFS path to the key file 
+	 * @param pFileSystem HDFS file system for current job
+	 * @param pKeyFile name of the keyfile for the FileTracker
+	 * @param pHash hash of the keyfile
+	 * @param pKeyFileLoc the full HDFS path to the key file 
 	 */
-	public FileTracker(FileSystem tFileSystem, String tKeyFile, String tHash, String keyFileLoc) {
+	public FileTracker(FileSystem pFileSystem, String pKeyFile, String pHash, String pKeyFileLoc) {
 
-		hashCode = tHash;
-		fileSystem = tFileSystem;
+		gHashCode = pHash;
+		gFileSystem = pFileSystem;
 		
-		StringTokenizer tok = new StringTokenizer(tKeyFile, ".");
+		StringTokenizer tok = new StringTokenizer(pKeyFile, ".");
 		//this makes sure we use the correct name between jobs
 		//this will need to be more robust (use md5 of file?)
 		//what if it's operating on later files and not using the original file?
 		//then use this filename to begin with as all generated files should start with it
 		if(tok.countTokens()<2) {
-			keyFile = tKeyFile;
+			gKeyFile = pKeyFile;
 		} else {
-			keyFile = tok.nextToken() + "." + tok.nextToken();
+			gKeyFile = tok.nextToken() + "." + tok.nextToken();
 		}
 		//this goes here as keyfile must be set
-		localTempDir = makeLocalTempDir();
+		gLocalTempDir = makeLocalTempDir();
 
-		hdfsStorageDir += keyFile + "-" + tHash + ".dir/";
+		gHdfsStorageDir += gKeyFile + "-" + pHash + ".dir/";
 		//make the directories if they don't exist
 		try {
-			if(!fileSystem.exists(new Path(hdfsStorageDir)))
-				fileSystem.mkdirs(new Path(hdfsStorageDir));
+			if(!gFileSystem.exists(new Path(gHdfsStorageDir)))
+				gFileSystem.mkdirs(new Path(gHdfsStorageDir));
 		} catch (IOException e2) {
 			e2.printStackTrace();
 		}
 		//set this to the full hdfs path name
 		try {
-			hdfsStorageDir = fileSystem.getFileStatus(new Path(hdfsStorageDir)).getPath().toString()+"/";
+			gHdfsStorageDir = gFileSystem.getFileStatus(new Path(gHdfsStorageDir)).getPath().toString()+"/";
 		} catch (IOException e1) {
 			//this should not fail
 		} 
 		
-		if(keyFile.equals(tKeyFile)) {
+		if(gKeyFile.equals(pKeyFile)) {
 			//as the keyfile is being passed as input to this tracker
 			//store the location of the keyfile
 			//note: this is not safe for concurrent use
 			//however, the output file should only be overwritten with the
 			//same information
 			try {
-				FSDataOutputStream output = fileSystem.create(new Path(hdfsStorageDir+KEYFILEFILE));
+				FSDataOutputStream output = gFileSystem.create(new Path(gHdfsStorageDir+KEYFILEFILE));
 				//do it this way as writing as UTF creates unicode<->ascii issues
-				output.write(keyFileLoc.getBytes());
+				output.write(pKeyFileLoc.getBytes());
 				output.close();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
@@ -152,10 +152,10 @@ public class FileTracker {
 			}
 		}
 
-		hdfsFiles = new LinkedList<String>();
+		gHdfsFiles = new LinkedList<String>();
 		//add the existing files to the list
 		try {
-			generateFileList(new Path(hdfsStorageDir));
+			generateFileList(new Path(gHdfsStorageDir));
 		} catch (IOException e) {
 			
 		}
@@ -168,10 +168,10 @@ public class FileTracker {
 	 */
 	private String getKeyFileLocation() {
 
-		if(doNothing) return null;
+		if(gDoNothing) return null;
 		
 		try {
-			FSDataInputStream input = fileSystem.open(new Path(hdfsStorageDir+KEYFILEFILE));
+			FSDataInputStream input = gFileSystem.open(new Path(gHdfsStorageDir+KEYFILEFILE));
 
 			BufferedReader red = new BufferedReader(new InputStreamReader(input));
 			String output = red.readLine();
@@ -190,8 +190,8 @@ public class FileTracker {
 	 * @return hash code of the key file
 	 */
 	public String getHash() {
-		if(doNothing) return null;
-		return hashCode;
+		if(gDoNothing) return null;
+		return gHashCode;
 	}
 
 	/**
@@ -200,9 +200,9 @@ public class FileTracker {
 	 */
 	public String getKeyFile() {
 		
-		if(doNothing) return null;
+		if(gDoNothing) return null;
 		
-		return keyFile;
+		return gKeyFile;
 	}
 
 	/**
@@ -211,34 +211,34 @@ public class FileTracker {
 	 */
 	public List<String> getFileList() {
 
-		if(doNothing) return null;
+		if(gDoNothing) return null;
 
-		return hdfsFiles;
+		return gHdfsFiles;
 	}
 	
 	/**
 	 * Constructor when we have a hash code to use
-	 * @param tFileSystem FileSystem reference
-	 * @param tHash The hash code for the original input file (passed through jobs)
+	 * @param pFileSystem FileSystem reference
+	 * @param pHash The hash code for the original input file (passed through jobs)
 	 */
-	public FileTracker(FileSystem tFileSystem, String tHash) {
+	public FileTracker(FileSystem pFileSystem, String pHash) {
 
-		fileSystem = tFileSystem;
+		gFileSystem = pFileSystem;
 
 		//if this is an md5sum locate the keyfile and populate the list
-		if(tHash.matches(WrapperSettings.PATTERN_HASH)) {
+		if(pHash.matches(Settings.PATTERN_HASH)) {
 			
 			//i.e. we were passed a hash so find the keyFile
 			try {
-				FileStatus[] fstatus = fileSystem.globStatus(new Path(hdfsStorageDir+"*-"+tHash+".dir*"));
-				hdfsStorageDir = fstatus[0].getPath().toString();
-				Pattern p = Pattern.compile("(.*)/([^/]+)-("+WrapperSettings.PATTERN_HASH+")(.dir.*)");
+				FileStatus[] fstatus = gFileSystem.globStatus(new Path(gHdfsStorageDir+"*-"+pHash+".dir*"));
+				gHdfsStorageDir = fstatus[0].getPath().toString();
+				Pattern p = Pattern.compile("(.*)/([^/]+)-("+Settings.PATTERN_HASH+")(.dir.*)");
 				Matcher m = p.matcher(fstatus[0].getPath().toString());
 				m.find();
 				//assume m.matches
 				//m.group(0) is full pattern match, then (1)(2)(3)... for the above pattern
-				keyFile = m.group(2);
-				hashCode = tHash;
+				gKeyFile = m.group(2);
+				gHashCode = pHash;
 				
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -253,18 +253,18 @@ public class FileTracker {
 		}
 
 		//this goes here as hash and keyfile must be set
-		localTempDir = makeLocalTempDir();
+		gLocalTempDir = makeLocalTempDir();
 		
 		//set this to the full hdfs path name
 		try {
-			hdfsStorageDir = fileSystem.getFileStatus(new Path(hdfsStorageDir)).getPath().toString()+"/";
+			gHdfsStorageDir = gFileSystem.getFileStatus(new Path(gHdfsStorageDir)).getPath().toString()+"/";
 		} catch (IOException e1) {
 		} 
 
-		hdfsFiles = new LinkedList<String>();
+		gHdfsFiles = new LinkedList<String>();
 		//add the existing files to the list
 		try {
-			generateFileList(new Path(hdfsStorageDir));
+			generateFileList(new Path(gHdfsStorageDir));
 		} catch (IOException e) {
 			
 		}
@@ -273,21 +273,21 @@ public class FileTracker {
 	
 	/**
 	 * Populates the list of files in HDFS in the class  
-	 * @param storageDir Directory in HDFS for the keyfile
+	 * @param pStorageDir Directory in HDFS for the keyfile
 	 * @throws IOException
 	 */
-	private void generateFileList(Path storageDir) throws IOException {
+	private void generateFileList(Path pStorageDir) throws IOException {
 	
 		//iterate through the files in the storage directory
-		FileStatus[] fileStatus = fileSystem.listStatus(storageDir);
+		FileStatus[] fileStatus = gFileSystem.listStatus(pStorageDir);
 		if(null == fileStatus) return;
 		for(FileStatus fs:fileStatus) {
-			if(fs.isDir()) {
+			if(fs.isDirectory()) {
 				generateFileList(fs.getPath());
 			} else { //i.e. not a directory
 				//add the file to the list if it is not the key file
 				if(!fs.getPath().getName().equals(KEYFILEFILE)) {
-					hdfsFiles.add(fs.getPath().toString().substring(hdfsStorageDir.toString().length()));
+					gHdfsFiles.add(fs.getPath().toString().substring(gHdfsStorageDir.toString().length()));
 				}
 			}
 		}
@@ -296,17 +296,17 @@ public class FileTracker {
 	
 	/**
 	 * Writes the list of files in this class to a text file
-	 * @param localFile File to write the list of files to
+	 * @param pLocalFile File to write the list of files to
 	 */
-	public void writeList(String localFile) {
-		if(doNothing) return;
+	public void writeList(String pLocalFile) {
+		if(gDoNothing) return;
 		BufferedWriter out;
 		try {
-			out = new BufferedWriter(new FileWriter(localFile));
-			out.write("hdfsStorageDir: "+hdfsStorageDir);out.newLine(); 
-			out.write("keyFile: "+keyFile);out.newLine(); 
-			out.write("hashCode: "+hashCode);out.newLine(); 
-			for(String file:hdfsFiles) {
+			out = new BufferedWriter(new FileWriter(pLocalFile));
+			out.write("hdfsStorageDir: "+gHdfsStorageDir);out.newLine(); 
+			out.write("keyFile: "+gKeyFile);out.newLine(); 
+			out.write("hashCode: "+gHashCode);out.newLine(); 
+			for(String file:gHdfsFiles) {
 				out.write(file);
 				out.newLine();
 			}
@@ -317,30 +317,30 @@ public class FileTracker {
 	
 	/**
 	 * Stores a file in HDFS at an appropriate location
-	 * @param localFilename Filename incluuding full local path
-	 * @param hdfsFilename Filename to use in hdfs
+	 * @param pLocalFilename Filename incluuding full local path
+	 * @param pHdfsFilename Filename to use in hdfs
 	 */
-	public void storeFile(String localFilename, String hdfsFilename) {
-		if(doNothing) return;
+	public void storeFile(String pLocalFilename, String pHdfsFilename) {
+		if(gDoNothing) return;
 		try {
-			fileSystem.copyFromLocalFile(new Path(localFilename), new Path(hdfsStorageDir+hdfsFilename));
+			gFileSystem.copyFromLocalFile(new Path(pLocalFilename), new Path(gHdfsStorageDir+pHdfsFilename));
 			//push the stored file via JMS
-			JMSComms.sendMessage(getHash(), "FILE:"+hdfsStorageDir+hdfsFilename);
+			JMSComms.sendMessage(getHash(), "FILE:"+gHdfsStorageDir+pHdfsFilename);
 		} catch (IOException e) {
 		}
-		hdfsFiles.add(hdfsFilename);
+		gHdfsFiles.add(pHdfsFilename);
 	}
 	
 	/**
 	 * Does the file exist in the context of the current keyfile
-	 * @param fileName file to check
+	 * @param pFileName file to check
 	 * @return true if it exists, false if not
 	 */
-	public boolean exists(String fileName) {
-		if(doNothing) return false;
+	public boolean exists(String pFileName) {
+		if(gDoNothing) return false;
 		try {
 		
-			if(fileName.equals(keyFile)) {
+			if(pFileName.equals(gKeyFile)) {
 //				if(fileSystem.exists(new Path(hdfsStorageDir+KEYFILEFILE))) {
 					System.out.println("keyFile must exist");
 					//i.e. the keyfile exists and must have the hdfs location of the
@@ -351,10 +351,10 @@ public class FileTracker {
 
 			}
 			
-			if(!fileName.toLowerCase().startsWith("hdfs")) {
-				return fileSystem.exists(new Path(hdfsStorageDir+fileName));
+			if(!pFileName.toLowerCase().startsWith("hdfs")) {
+				return gFileSystem.exists(new Path(gHdfsStorageDir+pFileName));
 			}
-			return fileSystem.exists(new Path(fileName));
+			return gFileSystem.exists(new Path(pFileName));
 		} catch (IOException e) {
 		}
 		return false;
@@ -362,34 +362,34 @@ public class FileTracker {
 	
 	/**
 	 * If the file exists return the full path to the file
-	 * @param fileName file to get a full reference for (short name only)
+	 * @param pFileName file to get a full reference for (short name only)
 	 * @return full pathname to the file
 	 */
-	public String getHDFSFilePath(String fileName) {
-		if(doNothing) return null;
-		if(fileName.equals(keyFile)) {
+	public String getHDFSFilePath(String pFileName) {
+		if(gDoNothing) return null;
+		if(pFileName.equals(gKeyFile)) {
 			return getKeyFileLocation();
 		} 
-		if(exists(fileName)) {
-			if(!fileName.toLowerCase().startsWith("hdfs"))
-				return hdfsStorageDir+fileName;
-			return fileName;
+		if(exists(pFileName)) {
+			if(!pFileName.toLowerCase().startsWith("hdfs"))
+				return gHdfsStorageDir+pFileName;
+			return pFileName;
 		}
 		return null;
 	}
 	
 	/**
 	 * Retrieves a file from HDFS, to a local directory, if required.  
-	 * @param fileName file name of file to make local
+	 * @param pFileName file name of file to make local
 	 */
-	public void makeFileLocal(String fileName) {
+	public void makeFileLocal(String pFileName) {
 		
-		if(doNothing) return;
+		if(gDoNothing) return;
 		
 		//sanity check;
-		if(!exists(fileName)) return;
+		if(!exists(pFileName)) return;
 		
-		File localTempFile = new File(localTempDir+fileName);
+		File localTempFile = new File(gLocalTempDir+pFileName);
 		if(localTempFile.exists()) {
 			//do nothing - assume file is ok
 			//could check the md5 maybe?			
@@ -401,7 +401,7 @@ public class FileTracker {
 			}
 			//copy the file from hdfs to local storage
 			try {
-				Tools.copyInputToLocalTemp(localTempDir,fileSystem,getHDFSFilePath(fileName));
+				Tools.copyInputToLocalTemp(localTempDir,gFileSystem,getHDFSFilePath(pFileName));
 			} catch (IOException e) {
 				return;
 			}
@@ -416,9 +416,9 @@ public class FileTracker {
 	 */
 	private String makeLocalTempDir() {
 		
-		if(doNothing) return null;
+		if(gDoNothing) return null;
 
-		File localTempDir = new File(WrapperSettings.TMP_DIR+getKeyFile()+"-"+getHash()+".dir/");
+		File localTempDir = new File(Settings.TMP_DIR+getKeyFile()+"-"+getHash()+".dir/");
 		localTempDir.mkdirs();
 		return localTempDir.toString()+"/";
 		
@@ -429,9 +429,9 @@ public class FileTracker {
 	 */
 	public String getLocalTempDir() {
 
-		if(doNothing) return null;
+		if(gDoNothing) return null;
 
-		return localTempDir;
+		return gLocalTempDir;
 	}
 
 	/**
@@ -439,19 +439,19 @@ public class FileTracker {
 	 */
 	public void deleteAllFiles() {
 
-		if(doNothing) return;
+		if(gDoNothing) return;
 
 		//delete the local files
-		Tools.deleteDirectory(new File(localTempDir));
+		Tools.deleteDirectory(new File(gLocalTempDir));
 		
 		//delete the files in hdfs
 		try {
-			fileSystem.delete(new Path(hdfsStorageDir), true /*delete recursively */);
+			gFileSystem.delete(new Path(gHdfsStorageDir), true /*delete recursively */);
 		} catch (IOException e) {
 		}
 
 		//once we've done this, don't allow anything else to happen
-		doNothing = true;
+		gDoNothing = true;
 	}
 	
 }

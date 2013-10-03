@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 The SCAPE Project Consortium
+ * Copyright 2012-2013 The SCAPE Project Consortium
  * Author: William Palmer (William.Palmer@bl.uk)
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +14,7 @@
  *   See the License for the specific language governing permissions and
  *   limitations under the License.
  */
-package eu.scape_project.tb.tavernahadoopwrapper;
+package eu.scape_project.tb.chutney.jobs;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -22,40 +22,47 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import eu.scape_project.tb.tavernahadoopwrapper.Jpeg2kProfile.JP2Profile;
+
+import eu.scape_project.tb.chutney.FileTracker;
+import eu.scape_project.tb.chutney.JMSComms;
+import eu.scape_project.tb.chutney.Settings;
+import eu.scape_project.tb.chutney.Tools;
+import eu.scape_project.tb.chutney.Settings.JobType;
+import uk.bl.dpt.qa.JP2Check;
+import uk.bl.dpt.qa.JP2Profile;
 
 /**
  * This class generates a report and zip file for previously executed XMLCommandLineJobs
  * @author wpalmer
  *
  */
-public class XMLWorkflowReport implements HadoopJob {
+public class XMLWorkflowReport implements ChutneyJob {
 
 	/**
 	 * Local temporary directory
 	 */
-	private String tempDir = "";
+	private String gTempDir = "";
 	/**
 	 * FileTracker
 	 */
-	private FileTracker fileTracker;
+	private FileTracker gFileTracker;
 	/**
 	 * Was this workflow successful?  Default to true unless reason to be false
 	 */
-	private boolean success = true;
+	private boolean gSuccess = true;
 	/**
 	 * Name of the output file
 	 */
-	String outputFile = "";
+	String gOutputFile = "";
 	
 	/**
 	 * Set up an XMLWorkflowReport
-	 * @param tFileTracker FileTracker to use
+	 * @param pFileTracker FileTracker to use
 	 */
-	public XMLWorkflowReport(FileTracker tFileTracker) {
-		fileTracker = tFileTracker;
-		tempDir = fileTracker.getLocalTempDir();
-		outputFile = tempDir+fileTracker.getKeyFile()+".zip";
+	public XMLWorkflowReport(FileTracker pFileTracker) {
+		gFileTracker = pFileTracker;
+		gTempDir = gFileTracker.getLocalTempDir();
+		gOutputFile = gTempDir+gFileTracker.getKeyFile()+".zip";
 	}
 	
 	/**
@@ -77,7 +84,7 @@ public class XMLWorkflowReport implements HadoopJob {
 		List<String> generatedFiles = new ArrayList<String>();
 		
 		//receive all the data from JMS
-		String key = fileTracker.getHash();
+		String key = gFileTracker.getHash();
 		String message = JMSComms.receiveMessage(key);
 		while(message!=null) {
 			if(message.startsWith("FILE:")) {
@@ -104,53 +111,52 @@ public class XMLWorkflowReport implements HadoopJob {
 
 		//FIXME: make sure to copy all the files to the local temp dir?
 		//copy all the generated files in to generatedFiles
-		for(String file:fileTracker.getFileList()) {
+		for(String file:gFileTracker.getFileList()) {
 			if(!generatedFiles.contains(file)) {
 				generatedFiles.add(file);
-				checksums.put(file, Tools.generateChecksum(tempDir+file));
+				checksums.put(file, Tools.generateChecksum(gTempDir+file));
 			}
 		}
 		
 		//now we have received all the data, we can produce a report and zip the files
-		String reportFile = fileTracker.getKeyFile()+".report.xml";
-		success = generateShortReport(tempDir+reportFile, generatedFiles, status);
-		checksums.put(reportFile, Tools.generateChecksum(tempDir+reportFile));
+		String reportFile = gFileTracker.getKeyFile()+".report.xml";
+		gSuccess = generateShortReport(gTempDir+reportFile, generatedFiles, status);
+		checksums.put(reportFile, Tools.generateChecksum(gTempDir+reportFile));
 		generatedFiles.add(reportFile);
 		
-		Tools.zipGeneratedFiles(success, checksums, generatedFiles, outputFile, tempDir);
+		Tools.zipGeneratedFiles(gSuccess, checksums, generatedFiles, gOutputFile, gTempDir);
 		
 	}
 
 	/**
 	 * Generate a short report from the workflow data
-	 * @param reportFile filename to write report to
+	 * @param pReportFile filename to write report to
 	 * @return whether report reports overall success or failure
 	 * @throws IOException 
 	 */
-	private boolean generateShortReport(String reportFile, List<String> generatedFiles, HashMap<String, String> status) throws IOException {
+	private boolean generateShortReport(String pReportFile, List<String> pGeneratedFiles, HashMap<String, String> pStatus) throws IOException {
 		boolean success = true;
 		
 		//HACK: this is a nasty hack (the jp2 bit at least)
-		String file = fileTracker.getKeyFile()+".jp2"+WrapperSettings.JPYLYZER_EXT;
+		String file = gFileTracker.getKeyFile()+".jp2"+Settings.JPYLYZER_EXT;
 		boolean jpylyzer = false;
 		boolean generatedIsValid = false;
 		boolean generatedMatchesInputProfile = false;
-		if(generatedFiles.contains(file)) {
+		if(pGeneratedFiles.contains(file)) {
 			jpylyzer = true;
-			generatedIsValid = Jpeg2kProfile.jpylyzerSaysValid(tempDir+file);
-			generatedMatchesInputProfile = Jpeg2kProfile.equalsJpylyzerProfile(tempDir+file, new JP2Profile());
+			generatedIsValid = JP2Check.jpylyzerSaysValid(gTempDir+file);
+			generatedMatchesInputProfile = JP2Check.checkJpylyzerProfile(gTempDir+file, new JP2Profile());
 		} 
 		boolean matchbox = false;
 		boolean ssimMatch = false;
-		file = fileTracker.getKeyFile()+WrapperSettings.MATCHBOX_EXT_SIFTCOMPARISON;
-		if(generatedFiles.contains(file)) {
+		file = gFileTracker.getKeyFile()+Settings.MATCHBOX_COMP_SIFT_EXT;
+		if(pGeneratedFiles.contains(file)) {
 			matchbox = true;
-			String compFile = fileTracker.getKeyFile()+WrapperSettings.MATCHBOX_COMP_SIFT_EXT;
 			//note the following comparison (>0.9) is one used in Matchbox's MatchboxLib.py 
-			if(fileTracker.exists(compFile)) { ssimMatch = Tools.getSSIMCompareVal(tempDir+compFile)>WrapperSettings.MATCHBOX_THRESHOLD; }
+			ssimMatch = Tools.getSSIMCompareVal(gTempDir+file)>Settings.MATCHBOX_THRESHOLD;
 		}
 		
-		BufferedWriter out = new BufferedWriter(new FileWriter(reportFile));
+		BufferedWriter out = new BufferedWriter(new FileWriter(pReportFile));
 		out.write("<?xml version='1.0' encoding='ascii'?>");out.newLine();
 		out.write("<migrationReport>");out.newLine();
 		if(jpylyzer) { 
@@ -165,14 +171,14 @@ public class XMLWorkflowReport implements HadoopJob {
 		}
 		
 		//go through the key set and look for failures
-		for(String xml:status.keySet()) {
+		for(String xml:pStatus.keySet()) {
 			out.write("<xmljob>");
 			out.write("<name>"+xml+"</name>");
-			out.write("<success>"+status.get(xml)+"</success>");
+			out.write("<success>"+pStatus.get(xml)+"</success>");
 			out.write("</xmljob>");
 			out.newLine();
 			
-			success &= new Boolean(status.get(xml));
+			success &= new Boolean(pStatus.get(xml));
 		}
 		
 		out.write("</migrationReport>");out.newLine();
@@ -195,7 +201,7 @@ public class XMLWorkflowReport implements HadoopJob {
 		//delete the directory here as the workflow is over;
 		//Tools.deleteDirectory(new File(tempDir));
 		
-		fileTracker.deleteAllFiles();
+		gFileTracker.deleteAllFiles();
 		
 		//delete files from HDFS?
 		
@@ -207,7 +213,7 @@ public class XMLWorkflowReport implements HadoopJob {
 	 */
 	public boolean wasSuccessful() {
 
-		return success;
+		return gSuccess;
 	}
 
 	/**
@@ -225,7 +231,7 @@ public class XMLWorkflowReport implements HadoopJob {
 	 */
 	public String[] getOutputFiles() {
 
-		return new String[] { outputFile } ;
+		return new String[] { gOutputFile } ;
 	}
 	
 	/**
@@ -234,6 +240,14 @@ public class XMLWorkflowReport implements HadoopJob {
 	 */
 	public String[] getInputFiles() {
 		return null;
+	}
+
+	public static JobType getJobType() {
+		return JobType.XMLWorkflowReport;
+	}
+
+	public static String getShortJobType() {
+		return "XWR";
 	}
 
 	

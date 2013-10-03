@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 The SCAPE Project Consortium
+ * Copyright 2012-2013 The SCAPE Project Consortium
  * Author: William Palmer (William.Palmer@bl.uk)
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,13 +15,11 @@
  *   limitations under the License.
  */
 
-package eu.scape_project.tb.tavernahadoopwrapper;
+package eu.scape_project.tb.chutney.jobs;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -30,41 +28,45 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.zip.ZipFile;
 
+import eu.scape_project.tb.chutney.Settings;
+import eu.scape_project.tb.chutney.Tools;
+import eu.scape_project.tb.chutney.Settings.JobType;
+
 /**
  * A class to run a Taverna workflow via the command line
  * @author wpalmer
  *
  */
-public class TavernaCommandLineJob implements HadoopJob {
+public class TavernaCommandLineJob implements ChutneyJob {
 
 	/**
 	 * Name of the workflow to use
 	 */
-	private String workflow = "";
+	private String gWorkflow = "";
 	/**
 	 * Names of input ports and input values
 	 */
-	private HashMap<String, String> inputValues;
+	private HashMap<String, String> gInputValues;
 	/**
 	 * Temporary directory to use
 	 */
-	private String tempDir = "";
+	private String gTempDir = "";
 	/**
 	 * Directory to store outputs
 	 */
-	private String outputDir = "";
+	private String gOutputDir = "";
 
 	/**
 	 * Constructor for job
-	 * @param list input ports and input values
-	 * @param workflow workflow to use
-	 * @param tempDir local temporary directory to use
+	 * @param pList input ports and input values
+	 * @param pWorkflow workflow to use
+	 * @param pTempDir local temporary directory to use
 	 */
-	public TavernaCommandLineJob(HashMap<String, String> list, String workflow, File tempDir) {
-		inputValues = list;
-		this.workflow = workflow;
-		this.tempDir = tempDir.toString()+"/";
-		outputDir = this.tempDir+"output/";
+	public TavernaCommandLineJob(HashMap<String, String> pList, String pWorkflow, File pTempDir) {
+		gInputValues = pList;
+		this.gWorkflow = pWorkflow;
+		this.gTempDir = pTempDir.toString()+"/";
+		gOutputDir = this.gTempDir+"output/";
 	}
 
 	/**
@@ -104,6 +106,7 @@ public class TavernaCommandLineJob implements HadoopJob {
 						//i.e. this zip file has a FAILURE entry
 						success = false;
 					}
+					zip.close();
 				} catch (IOException e) { }
 			}
 		}
@@ -116,14 +119,16 @@ public class TavernaCommandLineJob implements HadoopJob {
 	 * in the workflow)
 	 */
 	public String[] getOutputFiles() {
-		String[] files = new String[WrapperSettings.TAVERNA_WORKFLOW_OUTPUTPORTS.length];
-		for(int i=0;i<WrapperSettings.TAVERNA_WORKFLOW_OUTPUTPORTS.length;i++) {
-			files[i] = outputDir+WrapperSettings.TAVERNA_WORKFLOW_OUTPUTPORTS[i];
-			if(!new File(files[i]).exists()) {
-				//the files does not exist so try .error
+		String[] files = new String[Settings.TAVERNA_WORKFLOW_OUTPUTPORTS.length];
+		for(int i=0;i<Settings.TAVERNA_WORKFLOW_OUTPUTPORTS.length;i++) {
+			files[i] = gOutputDir+Settings.TAVERNA_WORKFLOW_OUTPUTPORTS[i];
+			File out = new File(files[i]);
+			if(!out.exists()||out.isDirectory()) {
+				//this file does not exist, or it is a directory (indicating failure) so try .error
 				files[i] += ".error";
 			}
 		}
+		//System.out.println("Output file: "+files[0]);
 		return files;
 	}
 
@@ -141,7 +146,7 @@ public class TavernaCommandLineJob implements HadoopJob {
 	public void cleanup() {
 		//delete all the generated files - all being in the same directory makes this easy
 		//DO NOT DELETE THE INPUT FILE WHEN RUNNING FROM THIS CLASS' MAIN!
-		Tools.deleteDirectory(new File(tempDir));			
+		Tools.deleteDirectory(new File(gTempDir));			
 	}
 
 	/**
@@ -154,33 +159,42 @@ public class TavernaCommandLineJob implements HadoopJob {
 		//we could do this over a single string but we will need to make
 		//sure it doesn't split filenames etc
 		List<String> commandLine = new ArrayList<String>();
-		commandLine.add(WrapperSettings.TAVERNA_SHELL);
-		commandLine.add(WrapperSettings.TAVERNA_COMMAND);
-		commandLine.add(WrapperSettings.TAVERNA_OPTIONS);
+		commandLine.add(Settings.TAVERNA_SHELL);
+		commandLine.add(Settings.TAVERNA_COMMAND);
+		commandLine.add(Settings.TAVERNA_OPTIONS);
 		
 		//now set inputs to workflow ports
-		for(String key : inputValues.keySet()) {
+		for(String key : gInputValues.keySet()) {
 			commandLine.add("-inputvalue");
 			commandLine.add(key);
-			String value = inputValues.get(key);
+			String value = gInputValues.get(key);
 			//if this is the input port - add the full path to the file
-			if(key.equals(WrapperSettings.TAVERNA_WORKFLOW_INPUTFILEPORT)) {
+			//if(key.equals(Settings.TAVERNA_WORKFLOW_INPUTFILEPORT)) {
 				//note we need to add tempdir to the inputs here
-				value = tempDir+value;
-			}
+			//	value = tempDir+value;
+			//}
 			commandLine.add(value);
 		}
 		
 		//set the output directory so we can capture the outputs
 		commandLine.add("-outputdir");
 		//outputDir should not exists at this point, otherwise Taverna doesn't like it
-		commandLine.add(outputDir);
+		commandLine.add(gOutputDir);
+		commandLine.add(gWorkflow);
 		
-		commandLine.add(workflow);
+		for(String s:commandLine) System.out.print(s+",");
+		System.out.println();
 		
 		ProcessBuilder pb = new ProcessBuilder(commandLine);
 		//set the working directory to our temporary directory
-		pb.directory(new File(tempDir));
+		pb.directory(new File(gTempDir));
+		//make sure that the temporary files are put in to a directory that we will later delete
+		pb.environment().put("TMP", gTempDir);
+		pb.environment().put("TEMP", gTempDir);
+		//this sets the environment variable that will be picked up by Taverna when executed in the shell
+		//this is the only way to do it as java.io.tmpdir is hardcoded to /tmp
+		pb.environment().put("_JAVA_OPTIONS","-Djava.io.tmpdir="+gTempDir);
+		
 		//this redirects stderr to stdout
 		pb.redirectErrorStream(true);
 		//start the executable
@@ -207,7 +221,7 @@ public class TavernaCommandLineJob implements HadoopJob {
 		logFile.write("Exitcode: "+proc.exitValue());
 		logFile.write("--------------------------------------");
 		//write the log of stdout and stderr to the logfile
-		char[] readBuffer = new char[WrapperSettings.BUFSIZE];
+		char[] readBuffer = new char[Settings.BUFSIZE];
 		int bytesRead = 0;
 		while(logBuf.ready()) {
 			bytesRead = logBuf.read(readBuffer);
@@ -222,7 +236,7 @@ public class TavernaCommandLineJob implements HadoopJob {
 	 * @return full path to the log file
 	 */
 	public String getLogFilename() {
-		return (tempDir + new File(inputValues.get(WrapperSettings.TAVERNA_WORKFLOW_OUTPUTFILEPORT)).getName()+".log");
+		return (gTempDir + new File(gInputValues.get(Settings.TAVERNA_WORKFLOW_INPUTFILEPORT)).getName()+".log");
 	}
 	
 	/**
@@ -232,42 +246,14 @@ public class TavernaCommandLineJob implements HadoopJob {
 	 */
 	public static void main(String[] args) throws IOException {
 		
-		String inputFile = "/tmp/test.tif";
-		String niceName = "abcdef1234.tif";
-		
-		//load input ports/values to a list
-		HashMap<String, String> list = new HashMap<String, String>();
-		list.put(WrapperSettings.TAVERNA_WORKFLOW_INPUTFILEPORT, new File(inputFile).getName());
-		list.put(WrapperSettings.TAVERNA_WORKFLOW_OUTPUTFILEPORT, niceName);
-		
-		File tempDir = Tools.newTempDir();
-		FileInputStream fis = new FileInputStream(inputFile);
-		FileOutputStream fos = new FileOutputStream(tempDir.toString()+"/"+new File(inputFile).getName());
-		byte[] buffer = new byte[WrapperSettings.BUFSIZE];
-		int bytesRead = 0;
-		while(fis.available()>0) {
-			bytesRead = fis.read(buffer);
-			fos.write(buffer, 0, bytesRead);
-		}
-		fis.close();
-		fos.close();
-
-		
-		//create new object and execute
-		HadoopJob tsb = new TavernaCommandLineJob(list, WrapperSettings.TAVERNA_WORKFLOW, tempDir);
-		
-		//NOTE: this is the output filename set in the workflow
-		//((TavernaCommandLineJob)tsb).setOutputName("ZIPFile");
-		
-		tsb.run();
-		
-		for(String f:tsb.getOutputFiles())
-			System.out.println("Output file: "+f);
-		System.out.println("Log file: "+tsb.getLogFilename());		
-		System.out.println("Success: "+tsb.wasSuccessful());
-		
-		tsb.cleanup();
-		
 	}
-	
+
+	public static JobType getJobType() {
+		return JobType.TavernaCommandLine;
+	}
+
+	public static String getShortJobType() {
+		return "TCL";
+	}
+
 }

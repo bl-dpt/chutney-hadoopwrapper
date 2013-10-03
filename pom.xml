@@ -1,12 +1,18 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>eu.scape_project.tb</groupId>
-	<artifactId>tavernahadoopwrapper</artifactId>
+	<groupId>eu.scape-project.tb</groupId>
+	<artifactId>chutney</artifactId>
 	<packaging>jar</packaging>
-	<version>0.7-SNAPSHOT</version>
-	<name>tavernahadoopwrapper</name>
+	<version>0.9.0-SNAPSHOT</version>
+	<name>chutney</name>
 	<url>http://www.scape-project.eu</url>
+	<repositories>
+		<repository>
+			<id>cloudera</id>
+			<url>https://repository.cloudera.com/artifactory/cloudera-repos/</url>
+		</repository>
+	</repositories>
 	<dependencies>
 		<dependency>
 			<groupId>junit</groupId>
@@ -26,11 +32,33 @@
 			<version>5.6.0</version>
 			<scope>compile</scope>
 		</dependency>
+		<!-- vanilla hadoop libs -->
+		<!-- 
+		<dependency> 
+			<groupId>org.apache.hadoop</groupId> 
+			<artifactId>hadoop-core</artifactId> 
+			<version>1.0.4</version> 
+			<scope>compile</scope> 
+		</dependency> 
+		-->
+		<!-- end of vanilla hadoop libs -->
+		<!-- cloudera hadoop libs -->
 		<dependency>
 			<groupId>org.apache.hadoop</groupId>
-			<artifactId>hadoop-core</artifactId>
-			<version>1.0.4</version>
+			<artifactId>hadoop-client</artifactId>
+			<version>2.0.0-mr1-cdh4.2.0</version>
 			<scope>compile</scope>
+		</dependency>
+		<!--  end of cloudera hadoop libs -->
+		<dependency>
+			<groupId>uk.bl.dpt</groupId>
+			<artifactId>fclib</artifactId>
+			<version>0.4-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>uk.bl.dpt.qa</groupId>
+			<artifactId>JP2Check</artifactId>
+			<version>0.3.0-SNAPSHOT</version>
 		</dependency>
 	</dependencies>
 	<build>
@@ -53,7 +81,7 @@
 					<archive>
 						<manifest>
 							<addClasspath>true</addClasspath>
-							<mainClass>eu.scape_project.tb.tavernahadoopwrapper.TavernaHadoopWrapper</mainClass>
+							<mainClass>eu.scape_project.tb.chutney.ChutneyDriver</mainClass>
 						</manifest>
 					</archive>
 				</configuration>
@@ -67,7 +95,7 @@
 					</descriptorRefs>
 					<archive>
 						<manifest>
-							<mainClass>eu.scape_project.tb.tavernahadoopwrapper.TavernaHadoopWrapper</mainClass>
+							<mainClass>eu.scape_project.tb.chutney.ChutneyDriver</mainClass>
 						</manifest>
 					</archive>
 				</configuration>
@@ -101,7 +129,7 @@
 		<developer>
 			<id>willp-bl</id>
 			<name>William Palmer</name>
-			<email>william.palmer ({at}) bl.uk</email>
+			<email>william.palmer@bl.uk</email>
 			<url>http://www.scape-project.eu/</url>
 			<organization>British Library / SCAPE Project</organization>
 			<timezone>0</timezone>

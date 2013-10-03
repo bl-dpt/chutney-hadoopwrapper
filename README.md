@@ -1,14 +1,16 @@
+Chutney v0.8
+============
+
 This project is (c) 2012, 2013 The SCAPE Project Consortium, see LICENSE.txt
 www.scape-project.eu
 
-TavernaHadoopWrapper v0.7
-=========================
-
-TavernaHadoopWrapper consists of two main parts; a wrapper for Hadoop that sets up an environment to 
+Chutney consists of two main parts; a wrapper for Hadoop that sets up an environment to 
 run java/command line workflows and a set of workflows that can be executed.  There is an interface 
 for a HadoopJob class that is implemented by a series of classes.
 
 The code has only been run on Debian Linux "Wheezy" and Ubuntu 12.04.1 LTS, both x64.
+
+This code has successfully migrated 1TB of TIFFs to JP2 with the CommandLineJob and TavernaCommandLineJob workflows - using HDFS, Fedora and Webdav data sources/destinations.
 
 The wrapper code takes the following arguments:
 jobname: 	the name of the job to run, this is propogated through to Hadoop and is used as a basis 
@@ -41,7 +43,7 @@ Exiftool (Debian version)
 Matchbox (from SCAPE GitHub https://github.com/openplanets/scape/tree/master/pc-qa-matchbox)
 Imagemagick (from Debian/Ubuntu)
 
-The version of Hadoop tested is 1.0.4
+The version of Hadoop tested is 1.0.4 and CDH4
 
 For Taverna command line the following is required:
 Taverna command line (2.4)
@@ -82,7 +84,6 @@ These workflows expect the following setup:
 
 Issues
 ======
-This code has only been tested on a pseudo distributed Hadoop in a Debian VM.
 An ActiveMQ queue is set up for each input file and not deleted at the end of the run, leaving an empty
 queue on the server.  This needs to be fixed.
 

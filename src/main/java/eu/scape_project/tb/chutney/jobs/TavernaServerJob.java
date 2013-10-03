@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 The SCAPE Project Consortium
+ * Copyright 2012-2013 The SCAPE Project Consortium
  * Author: William Palmer (William.Palmer@bl.uk)
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +15,7 @@
  *   limitations under the License.
  */
 
-package eu.scape_project.tb.tavernahadoopwrapper;
+package eu.scape_project.tb.chutney.jobs;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -41,13 +41,16 @@ import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+import eu.scape_project.tb.chutney.Settings;
+import eu.scape_project.tb.chutney.Settings.JobType;
+
 /**
  * Class to communicate with a Taverna Server instance.  This might be not work at the 
  * moment due to refactoring around other workflows.
  * @author wpalmer
  *
  */
-public class TavernaServerJob implements HadoopJob {
+public class TavernaServerJob implements ChutneyJob {
 
 	/**
 	 * Authentication class for HTTP connections
@@ -56,68 +59,68 @@ public class TavernaServerJob implements HadoopJob {
 	 */
 	private static class Auth extends Authenticator {
 		public PasswordAuthentication getPasswordAuthentication() {
-			return new PasswordAuthentication(WrapperSettings.TAVERNA_SERVER_USER,
-												WrapperSettings.TAVERNA_SERVER_PASS.toCharArray());
+			return new PasswordAuthentication(Settings.TAVERNA_SERVER_USER,
+												Settings.TAVERNA_SERVER_PASS.toCharArray());
 		}
 	}
 	
 	//for details of this rest API look at http://127.0.0.1:8080/tavernaserver/ or equivalent
 	
-	private String UUID = "";
-	private HttpURLConnection server;
-	private String workflow = "";
-	private HashMap<String, String> inputValues;
+	private String gUUID = "";
+	private HttpURLConnection gServer;
+	private String gWorkflow = "";
+	private HashMap<String, String> gInputValues;
 	
 	/**
 	 * Convenience method to setup a server connection
 	 * Note: may need to connect() to server after this, if appropriate
-	 * @param address URL 
-	 * @param method GET/PUT/DELETE/etc
+	 * @param pAddress URL 
+	 * @param pMethod GET/PUT/DELETE/etc
 	 * @return an HttpURLConnection set up according to the parameters
 	 * @throws IOException
 	 */
-	private HttpURLConnection setupConnection(String address, String method) throws IOException {
+	private HttpURLConnection setupConnection(String pAddress, String pMethod) throws IOException {
 		Authenticator.setDefault(new Auth());
-		URL url = new URL(address);
+		URL url = new URL(pAddress);
 		HttpURLConnection server = (HttpURLConnection)url.openConnection();
 		server = (HttpURLConnection)url.openConnection();
-		server.setRequestMethod(method);
+		server.setRequestMethod(pMethod);
 		server.setDoOutput(true);
 		return server;
 	}
 	
 	/**
 	 * Puts a Taverna workflow inputport value onto the server
-	 * @param inputPort
-	 * @param inputValue
+	 * @param pInputPort
+	 * @param pInputValue
 	 * @throws IOException
 	 */
-	private void putInputValue(String inputPort, String inputValue) throws IOException {	
-		server = setupConnection(WrapperSettings.TAVERNA_SERVER+UUID+"/input/input/"+inputPort,"PUT");		
+	private void putInputValue(String pInputPort, String pInputValue) throws IOException {	
+		gServer = setupConnection(Settings.TAVERNA_SERVER+gUUID+"/input/input/"+pInputPort,"PUT");		
 		String xmlRequest = "<t2sr:runInput xmlns:t2sr=\"http://ns.taverna.org.uk/2010/xml/server/rest/\">" +
-								"<t2sr:value>"+inputValue+"</t2sr:value>"+
+								"<t2sr:value>"+pInputValue+"</t2sr:value>"+
 								"</t2sr:runInput>";
-		BufferedWriter output = new BufferedWriter(new OutputStreamWriter(server.getOutputStream()));
+		BufferedWriter output = new BufferedWriter(new OutputStreamWriter(gServer.getOutputStream()));
 		output.write(xmlRequest);
 		output.close();
-		server.connect();
+		gServer.connect();
 	}
 	
 	/**
 	 * Convenience method to copy a file to an OutputStream
-	 * @param file
-	 * @param output
+	 * @param pFile
+	 * @param pOutput
 	 * @throws IOException
 	 */
-	private void writeFileToOutputStream(String file, OutputStream output) throws IOException {
+	private void writeFileToOutputStream(String pFile, OutputStream pOutput) throws IOException {
 		ByteArrayOutputStream outStream = new ByteArrayOutputStream();
-		FileInputStream fileReader = new FileInputStream(file);
-		byte[] buffer = new byte[WrapperSettings.BUFSIZE];
+		FileInputStream fileReader = new FileInputStream(pFile);
+		byte[] buffer = new byte[Settings.BUFSIZE];
 		while(fileReader.available()>0){
 			int bytesRead = fileReader.read(buffer);
 			outStream.write(buffer, 0, bytesRead);	
 		}		
-		outStream.writeTo(output);
+		outStream.writeTo(pOutput);
 		outStream.close();
 		fileReader.close();
 	}
@@ -150,7 +153,7 @@ public class TavernaServerJob implements HadoopJob {
 	 * Get the full path to the log file
 	 */
 	public String getLogFilename() {
-		return inputValues.get(WrapperSettings.TAVERNA_WORKFLOW_OUTPUTFILEPORT)+".log";
+		return gInputValues.get(Settings.TAVERNA_WORKFLOW_INPUTFILEPORT)+".log";
 	}
 	
 	/**
@@ -158,12 +161,12 @@ public class TavernaServerJob implements HadoopJob {
 	 * @throws IOException
 	 */
 	private void startWorkflow() throws IOException {
-		server = setupConnection(WrapperSettings.TAVERNA_SERVER+UUID+"/status","PUT");
+		gServer = setupConnection(Settings.TAVERNA_SERVER+gUUID+"/status","PUT");
 		String str = "Operating";
-		BufferedWriter output = new BufferedWriter(new OutputStreamWriter(server.getOutputStream()));
+		BufferedWriter output = new BufferedWriter(new OutputStreamWriter(gServer.getOutputStream()));
 		output.write(str);
 		output.close();
-		server.connect();
+		gServer.connect();
 	}
 
 	/**
@@ -172,9 +175,9 @@ public class TavernaServerJob implements HadoopJob {
 	 * @throws IOException
 	 */
 	private boolean isJobFinished() throws IOException {
-		server = setupConnection(WrapperSettings.TAVERNA_SERVER+UUID+"/status","GET");
-		server.connect();
-		BufferedReader bufR = new BufferedReader(new InputStreamReader(server.getInputStream()));
+		gServer = setupConnection(Settings.TAVERNA_SERVER+gUUID+"/status","GET");
+		gServer.connect();
+		BufferedReader bufR = new BufferedReader(new InputStreamReader(gServer.getInputStream()));
 		String status = bufR.readLine();
 		System.out.println(status);
 		return status.equals("Finished");
@@ -182,46 +185,46 @@ public class TavernaServerJob implements HadoopJob {
 
 	/**
 	 * Constructor
-	 * @param list input port names and values
-	 * @param workflow workflow to execute
+	 * @param pList input port names and values
+	 * @param pWorkflow workflow to execute
 	 */
-	public TavernaServerJob(HashMap<String, String> list, String workflow) {
-		inputValues = list;
-		this.workflow = workflow;		
+	public TavernaServerJob(HashMap<String, String> pList, String pWorkflow) {
+		gInputValues = pList;
+		this.gWorkflow = pWorkflow;		
 	}
 	
 	/**
 	 * Recover stdout and stderr from the server and write to fileName
-	 * @param fileName
+	 * @param pFileName
 	 * @throws IOException
 	 */
-	private void getStdoutToFile(String fileName) throws IOException {
+	private void getStdoutToFile(String pFileName) throws IOException {
 
-		BufferedWriter logFile = new BufferedWriter(new FileWriter(fileName));
+		BufferedWriter logFile = new BufferedWriter(new FileWriter(pFileName));
 
 		//write input and output file details to log
-		String outFile = fileName.substring(0, fileName.lastIndexOf("."));
+		String outFile = pFileName.substring(0, pFileName.lastIndexOf("."));
 		logFile.write("Output file: "+outFile+
 						" exists: "+(new File(outFile).exists())+
 						" size: "+(new File(outFile).length()));
 		logFile.newLine();
 		
-		String inFile = inputValues.get(WrapperSettings.TAVERNA_WORKFLOW_INPUTFILEPORT);
+		String inFile = gInputValues.get(Settings.TAVERNA_WORKFLOW_INPUTFILEPORT);
 		logFile.write("Input file: "+inFile+
 						" exists: "+(new File(inFile).exists())+
 						" size: "+(new File(inFile).length()));
 		logFile.newLine();
 		
 		//recover stdout and write to log
-		server = setupConnection(WrapperSettings.TAVERNA_SERVER+UUID+"/listeners/io/properties/stdout","GET");
-		server.connect();
-		BufferedReader logBuf = new BufferedReader(new InputStreamReader(server.getInputStream()));
+		gServer = setupConnection(Settings.TAVERNA_SERVER+gUUID+"/listeners/io/properties/stdout","GET");
+		gServer.connect();
+		BufferedReader logBuf = new BufferedReader(new InputStreamReader(gServer.getInputStream()));
 
 		logFile.newLine();
 		logFile.write("stdout:");logFile.newLine();
 		logFile.write("---------------------------");logFile.newLine();
 		
-		char[] readBuffer = new char[WrapperSettings.BUFSIZE];
+		char[] readBuffer = new char[Settings.BUFSIZE];
 		int bytesRead = 0;
 		while(logBuf.ready()) {
 			bytesRead = logBuf.read(readBuffer);
@@ -229,15 +232,15 @@ public class TavernaServerJob implements HadoopJob {
 		}
 
 		//recover stderr and write to log
-		server = setupConnection(WrapperSettings.TAVERNA_SERVER+UUID+"/listeners/io/properties/stderr","GET");
-		server.connect();
-		logBuf = new BufferedReader(new InputStreamReader(server.getInputStream()));
+		gServer = setupConnection(Settings.TAVERNA_SERVER+gUUID+"/listeners/io/properties/stderr","GET");
+		gServer.connect();
+		logBuf = new BufferedReader(new InputStreamReader(gServer.getInputStream()));
 		
 		logFile.newLine();
 		logFile.write("stderr:");logFile.newLine();
 		logFile.write("---------------------------");logFile.newLine();
 
-		readBuffer = new char[WrapperSettings.BUFSIZE];
+		readBuffer = new char[Settings.BUFSIZE];
 		bytesRead = 0;
 		while(logBuf.ready()) {
 			bytesRead = logBuf.read(readBuffer);
@@ -264,27 +267,27 @@ public class TavernaServerJob implements HadoopJob {
 		//initial connection to server
 		
 			do {
-				server = setupConnection(WrapperSettings.TAVERNA_SERVER, "POST");
+				gServer = setupConnection(Settings.TAVERNA_SERVER, "POST");
 				//we need to make sure the content type of the file is correct
-				server.setRequestProperty("Content-type", "application/vnd.taverna.t2flow+xml");
+				gServer.setRequestProperty("Content-type", "application/vnd.taverna.t2flow+xml");
 				//write the workflow to the server
-				writeFileToOutputStream(workflow, server.getOutputStream());
-				server.connect();
+				writeFileToOutputStream(gWorkflow, gServer.getOutputStream());
+				gServer.connect();
 				
 				//should have a 201 response code
-				if(server.getResponseCode()!=HttpURLConnection.HTTP_CREATED) {
+				if(gServer.getResponseCode()!=HttpURLConnection.HTTP_CREATED) {
 					//i.e. returned not ok
-					System.out.println("Response: "+server.getResponseCode());
+					System.out.println("Response: "+gServer.getResponseCode());
 					System.out.println("Retrying in 5 seconds...");
 					Thread.sleep(5000);
 				} else {
 					//i.e. returned ok
 					//location returns the uuid
-					UUID = server.getHeaderField("Location").substring(WrapperSettings.TAVERNA_SERVER.length());
-					System.out.println("UUID: "+UUID);
+					gUUID = gServer.getHeaderField("Location").substring(Settings.TAVERNA_SERVER.length());
+					System.out.println("UUID: "+gUUID);
 				}
 				//loop is not 201 here i.e. on a 403 
-			} while(server.getResponseCode()!=HttpURLConnection.HTTP_CREATED);
+			} while(gServer.getResponseCode()!=HttpURLConnection.HTTP_CREATED);
 			
 		//print any response to the console
 		//BufferedReader bufR = new BufferedReader(new InputStreamReader(server.getInputStream()));
@@ -292,15 +295,15 @@ public class TavernaServerJob implements HadoopJob {
 			//System.out.println(bufR.readLine());
 		
 		//now set inputs to workflow ports
-		for(String key : inputValues.keySet()) {
-			putInputValue(key,inputValues.get(key));
-			System.out.println("Response: "+server.getResponseCode());
+		for(String key : gInputValues.keySet()) {
+			putInputValue(key,gInputValues.get(key));
+			System.out.println("Response: "+gServer.getResponseCode());
 		}
 		
 		//execute workflow
 		startWorkflow();
 
-		System.out.println("Response: "+server.getResponseCode());
+		System.out.println("Response: "+gServer.getResponseCode());
 		
 		//poll until the job is done
 		while(!isJobFinished()) 
@@ -322,28 +325,26 @@ public class TavernaServerJob implements HadoopJob {
 	 * and then deletes them all.
 	 * This is particularly useful when the jobs have not been terminated correctly.
 	 * This is executed by the main in this class which is used for testing purposes.
-	 * @throws IOException
-	 * @throws ParserConfigurationException
-	 * @throws SAXException
 	 */
+	@SuppressWarnings("unused")
 	private void deleteJobs() {
 		try {
 			//get a list of open runs
-			server = setupConnection(WrapperSettings.TAVERNA_SERVER,"GET");
-			server.connect();
+			gServer = setupConnection(Settings.TAVERNA_SERVER,"GET");
+			gServer.connect();
 
 			//parse the values returned
 			DocumentBuilder docB = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-			Document doc = docB.parse(server.getInputStream());
+			Document doc = docB.parse(gServer.getInputStream());
 
 			//iterates through the nodes and delete each job
 			NodeList list = doc.getElementsByTagName("ns3:run");
 			for(int i=0;i<list.getLength();i++) {
 				String job = list.item(i).getAttributes().getNamedItem("ns1:href").getNodeValue();
-				server = setupConnection(job,"DELETE");
-				server.connect();
+				gServer = setupConnection(job,"DELETE");
+				gServer.connect();
 				//this seems to return 204 if it worked ok
-				System.out.println("Job deleted: "+server.getResponseCode()+" "+job);
+				System.out.println("Job deleted: "+gServer.getResponseCode()+" "+job);
 			}
 		} catch(IOException e) {
 
@@ -362,15 +363,16 @@ public class TavernaServerJob implements HadoopJob {
 	 */
 	public void cleanup() throws IOException {
 		//delete the job and tidy up
-		HttpURLConnection server = setupConnection(WrapperSettings.TAVERNA_SERVER+UUID,"DELETE");
+		HttpURLConnection server = setupConnection(Settings.TAVERNA_SERVER+gUUID,"DELETE");
 		server.connect();
 		
-		System.out.println("Deleted job "+UUID+": "+server.getResponseCode());
+		System.out.println("Deleted job "+gUUID+": "+server.getResponseCode());
 		
 		//delete all the files
-		new File(inputValues.get(WrapperSettings.TAVERNA_WORKFLOW_OUTPUTFILEPORT)).delete();
-		new File(inputValues.get(WrapperSettings.TAVERNA_WORKFLOW_OUTPUTFILEPORT)+".log").delete();
-		new File(inputValues.get(WrapperSettings.TAVERNA_WORKFLOW_INPUTFILEPORT)).delete();
+		//FIXME
+		//new File(inputValues.get(Settings.TAVERNA_WORKFLOW_OUTPUTFILEPORT)).delete();
+		//new File(inputValues.get(Settings.TAVERNA_WORKFLOW_OUTPUTFILEPORT)+".log").delete();
+		//new File(inputValues.get(Settings.TAVERNA_WORKFLOW_INPUTFILEPORT)).delete();
 		
 	}
 
@@ -381,24 +383,14 @@ public class TavernaServerJob implements HadoopJob {
 	 */
 	public static void main(String[] args) throws IOException {
 		
-		//load input ports/values to a list
-		HashMap<String, String> list = new HashMap<String, String>();
-		list.put(WrapperSettings.TAVERNA_WORKFLOW_INPUTFILEPORT, WrapperSettings.STANDALONE_TEST_INPUT);
-		list.put(WrapperSettings.TAVERNA_WORKFLOW_OUTPUTFILEPORT, WrapperSettings.STANDALONE_TEST_OUTPUT);
-		
-		//create new object and execute
-		TavernaServerJob tsb = new TavernaServerJob(list, WrapperSettings.TAVERNA_WORKFLOW);
-		
-		//delete any open jobs
-		//NOTE: this job has not been set up on the server yet so it's ok to delete them all!
-		tsb.deleteJobs();
-		
-		//run the job
-		tsb.run();
-		
-		//clean up the job
-		tsb.cleanup();
-		
 	}
-	
+
+	public static JobType getJobType() {
+		return JobType.TavernaServerJob;
+	}
+
+	public static String getShortJobType() {
+		return "TSJ";
+	}
+
 }

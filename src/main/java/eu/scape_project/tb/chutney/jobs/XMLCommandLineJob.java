@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 The SCAPE Project Consortium
+ * Copyright 2012-2013 The SCAPE Project Consortium
  * Author: William Palmer (William.Palmer@bl.uk)
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +15,7 @@
  *   limitations under the License.
  */
 
-package eu.scape_project.tb.tavernahadoopwrapper;
+package eu.scape_project.tb.chutney.jobs;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
+
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -36,13 +37,17 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
+import eu.scape_project.tb.chutney.Settings;
+import eu.scape_project.tb.chutney.Tools;
+import eu.scape_project.tb.chutney.Settings.JobType;
+
 /**
  * This class implements a workflow by invoking command line tools
  * that need to be available on all Hadoop nodes.
  * @author wpalmer
  *
  */
-public class XMLCommandLineJob implements HadoopJob {
+public class XMLCommandLineJob implements ChutneyJob {
 
 	/**
 	 * A class that represents an XML code file
@@ -50,199 +55,187 @@ public class XMLCommandLineJob implements HadoopJob {
 	 *
 	 */
 	private class XMLTool {
-		
 		/**
 		 * List of input files, as defined in the xml
 		 */
-		private String[] inFiles;
+		private String[] gInFiles;
 		/**
 		 * List of output files, as defined in the xml
 		 */
-		private String[] outFiles;
+		private String[] gOutFiles;
 		/**
 		 * Command line, as defined in the xml
 		 */
-		private String commandLine = "";
+		private String gCommandLine = "";
 		/**
 		 * Library path, as defined in the xml
 		 */
-		private String libraryPath = "";
+		private String gLibraryPath = "";
 		/**
 		 * Whether to redirect stdout to an output file, as defined in the xml
 		 */
-		private boolean redirectSTDOUT = false;
-		
+		private boolean gRedirectSTDOUT = false;
 		/**
 		 * Instantiate the class
-		 * @param xmlCode a full path to a local file containing XML code
+		 * @param pXmlCode a full path to a local file containing XML code
 		 */
-		public XMLTool(String xmlCode) {
-			loadXML(xmlCode);
+		public XMLTool(String pXmlCode) {
+			loadXML(pXmlCode);
 		}
-		
 		/**
 		 * Whether to redirect stdout to the output file
 		 * @return true or false
 		 */
 		public boolean redirectSTDOUT() {
-			return redirectSTDOUT;
+			return gRedirectSTDOUT;
 		}
-		
 		/**
 		 * Replaces the input file name already set with @param filename
-		 * @param tFilename filename to use as a replacement 
+		 * @param pFilename filename to use as a replacement
 		 */
 		//NOTE: this will only work the first time it is called!
-		public void setInputFile(String tFilename) {
+		public void setInputFile(String pFilename) {
 			//make sure these are local file references only
-			String filename = new File(tFilename).getName();
+			String filename = new File(pFilename).getName();
 			//System.out.println("setting xml input file: "+filename);
 			//replace all instances of %input% in inFiles with filename
-			for(int i=0;i<outFiles.length;i++) {
-				outFiles[i] = outFiles[i].replaceAll(WrapperSettings.XML_INPUT_REPLACEMENT, filename);
+			for(int i=0;i<gOutFiles.length;i++) {
+				gOutFiles[i] = gOutFiles[i].replaceAll(Settings.XML_INPUT_REPLACEMENT, filename);
 			}
 			//replace all instances of %input% in outFiles with filename
-			for(int i=0;i<inFiles.length;i++) {
-				inFiles[i] = inFiles[i].replaceAll(WrapperSettings.XML_INPUT_REPLACEMENT, filename);
+			for(int i=0;i<gInFiles.length;i++) {
+				gInFiles[i] = gInFiles[i].replaceAll(Settings.XML_INPUT_REPLACEMENT, filename);
 			}
-			//replace all instances of %input[i]% in commandline 
-			for(int i=0;i<inFiles.length;i++) {
-				commandLine = commandLine.replaceAll("%input"+(i+1)+"%", inFiles[i]);
+			//replace all instances of %input[i]% in commandline
+			for(int i=0;i<gInFiles.length;i++) {
+				gCommandLine = gCommandLine.replaceAll("%input"+(i+1)+"%", gInFiles[i]);
 			}
-			//replace all instances of %output[i]% in commandline 
-			for(int i=0;i<outFiles.length;i++) {
-				commandLine = commandLine.replaceAll("%output"+(i+1)+"%", outFiles[i]);
+			//replace all instances of %output[i]% in commandline
+			for(int i=0;i<gOutFiles.length;i++) {
+				gCommandLine = gCommandLine.replaceAll("%output"+(i+1)+"%", gOutFiles[i]);
 			}
-			System.out.println(commandLine);
+			System.out.println(gCommandLine);
 		}
-		
 		/**
-		 * Get the library path 
+		 * Get the library path
 		 * @return get the library path defined in the xml
 		 */
 		public String getLibraryPath() {
-			return libraryPath;
+			return gLibraryPath;
 		}
-		
 		/**
 		 * Get the list of output files
 		 * @return list of output files
 		 */
 		public String[] getOutputFiles() {
-			return outFiles;
+			return gOutFiles;
 		}
-		
 		/**
 		 * Get the list of input files
 		 * @return list of input files
 		 */
 		public String[] getInputFiles() {
-			return inFiles;
+			return gInFiles;
 		}
-		
 		/**
 		 * Get the command line
 		 * @return get the command line from the xml
 		 */
 		public String getCommandLine() {
-			return commandLine;
+			return gCommandLine;
 		}
 
 		/**
 		 * Load an XML file in to the class
-		 * @param xmlCode
+		 * @param pXmlCode
 		 */
-		private void loadXML(String xmlCode) {
+		private void loadXML(String pXmlCode) {
 			//parse the values returned
 			DocumentBuilder docB = null;
 			Document doc = null;
-			
 			try {
 				docB = DocumentBuilderFactory.newInstance().newDocumentBuilder();
 			} catch(ParserConfigurationException pce) {
 			}
 			try {
-				doc = docB.parse(xmlCode);
+				doc = docB.parse(pXmlCode);
 			} catch(IOException ioe) {
 				ioe.printStackTrace();
 			} catch(SAXException se) {
 				se.printStackTrace();
 			}
-			
 			Node root = doc.getFirstChild();
-			XPath xpath = XPathFactory.newInstance().newXPath();			
+			XPath xpath = XPathFactory.newInstance().newXPath();	
 			try {
 				int num = 0;
 				int count = new Integer(xpath.evaluate("count(/tool/input)", root));
-				inFiles = new String[count];
+				gInFiles = new String[count];
 				for(int i=0;i<count;i++) {//xpath is 1-based
 					num = new Integer(xpath.evaluate("/tool/input["+(i+1)+"]/@val", root));
-					inFiles[num-1] = xpath.evaluate("/tool/input["+(i+1)+"]", root);					
+					gInFiles[num-1] = xpath.evaluate("/tool/input["+(i+1)+"]", root);	
 				}
 				count = new Integer(xpath.evaluate("count(/tool/output)", root));
-				outFiles = new String[count];
+				gOutFiles = new String[count];
 				for(int i=0;i<count;i++) {//xpath is 1-based
 					num = new Integer(xpath.evaluate("/tool/output["+(i+1)+"]/@val", root));
-					outFiles[num-1] = xpath.evaluate("/tool/output["+(i+1)+"]", root);
+					gOutFiles[num-1] = xpath.evaluate("/tool/output["+(i+1)+"]", root);
 				}
-				libraryPath = xpath.evaluate("/tool/librarypath", root);
-				commandLine = xpath.evaluate("/tool/command", root);
-				redirectSTDOUT = new Boolean(xpath.evaluate("/tool/redirectstdouttooutput", root));
+				gLibraryPath = xpath.evaluate("/tool/librarypath", root);
+				gCommandLine = xpath.evaluate("/tool/command", root);
+				gRedirectSTDOUT = new Boolean(xpath.evaluate("/tool/redirectstdouttooutput", root));
 			} catch (XPathExpressionException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-		
 		}
-		
 	}
 
 	/**
 	 * XMLTool for this class
 	 */
-	private XMLTool xml;
+	private XMLTool gXml;
 	
 	/**
 	 * Global stdout buffer
 	 */
-	private BufferedReader stdout = null;
+	private BufferedReader gStdout = null;
 	/**
 	 * Global stderr buffer
 	 */
-	private BufferedReader stderr = null;
+	private BufferedReader gStderr = null;
 	
 	/**
 	 * Variable returned by wasSuccessful()
 	 * Set in generateShortReport()
 	 */
-	private boolean success = false;
+	private boolean gSuccess = false;
 	
 	//populate the input/output files into sensible variable names
-	private String tempDir = "";
-	private String logFile = "";
-	private String xmlName = "";
+	private String gTempDir = "";
+	private String gLogFile = "";
+	private String gXmlName = "";
 	
 	/**
 	 * Construct a CommandLineJob
-	 * @param keyFile key file for the tracker 
-	 * @param localTempDir local temporary directory
-	 * @param xmlCode xml defined job
+	 * @param pKeyFile key file for the tracker 
+	 * @param pLocalTempDir local temporary directory
+	 * @param pXmlCode xml defined job
 	 */
-	public XMLCommandLineJob(String keyFile, String localTempDir, String xmlCode) {
-		tempDir = localTempDir + "/";
-		xml = new XMLTool(xmlCode);
-		xmlName = new File(xmlCode).getName().replace(".xml","");
-		logFile = tempDir + keyFile + "."+xmlName+".log";		
-		//Replace all instances of WrapperSettings.XML_INPUT_REPLACEMENT with the input file
+	public XMLCommandLineJob(String pKeyFile, String pLocalTempDir, String pXmlCode) {
+		gTempDir = pLocalTempDir + "/";
+		gXml = new XMLTool(pXmlCode);
+		gXmlName = new File(pXmlCode).getName().replace(".xml","");
+		gLogFile = gTempDir + pKeyFile + "."+gXmlName+".log";		
+		//Replace all instances of Settings.XML_INPUT_REPLACEMENT with the input file
 		//in the xml code
-		xml.setInputFile(keyFile);
+		gXml.setInputFile(pKeyFile);
 	}
 	
 	/**
 	 * Get the name of the logfile
 	 */
 	public String getLogFilename() {
-		return logFile;
+		return gLogFile;
 	}
 	
 	/**
@@ -250,7 +243,7 @@ public class XMLCommandLineJob implements HadoopJob {
 	 * @return get the name of the job from the xml filename
 	 */
 	public String getXMLName() {
-		return xmlName;
+		return gXmlName;
 	}
 	
 	/**
@@ -265,9 +258,9 @@ public class XMLCommandLineJob implements HadoopJob {
 	 * @return list of full path names of output files
 	 */
 	public String[] getOutputFiles() {
-		String[] files = new String[xml.getOutputFiles().length];
-		for(int i=0;i<xml.getOutputFiles().length;i++) {
-			files[i]=tempDir+xml.getOutputFiles()[i];
+		String[] files = new String[gXml.getOutputFiles().length];
+		for(int i=0;i<gXml.getOutputFiles().length;i++) {
+			files[i]=gTempDir+gXml.getOutputFiles()[i];
 		}
 		return files; 
 	}
@@ -277,45 +270,45 @@ public class XMLCommandLineJob implements HadoopJob {
 	 * @return list of full path names of input files
 	 */
 	public String[] getInputFiles() {
-		if(xml==null) return null;
-		String[] xmlFiles = xml.getInputFiles();
+		if(gXml==null) return null;
+		String[] xmlFiles = gXml.getInputFiles();
 		String files[] = new String[xmlFiles.length];
 		for(int i=0;i<files.length;i++) {
-			files[i] = tempDir+xmlFiles[i];
+			files[i] = gTempDir+xmlFiles[i];
 		}
 		return files; 
 	}
 
 	/**
 	 * Executes a given command line.  Note stdout and stderr will be populated by this method.
-	 * @param commandLine command line to run
+	 * @param pCommandLine command line to run
 	 * @return exit code from execution of the command line
 	 * @throws IOException
 	 */
-	private int runCommand(List<String> commandLine, String libraryPath) throws IOException {
+	private int runCommand(List<String> pCommandLine, String pLibraryPath) throws IOException {
 		//check there are no command line options that are empty
-		while(commandLine.contains("")) {
-			commandLine.remove("");
+		while(pCommandLine.contains("")) {
+			pCommandLine.remove("");
 		}
 		
-		ProcessBuilder pb = new ProcessBuilder(commandLine);
+		ProcessBuilder pb = new ProcessBuilder(pCommandLine);
 		//don't redirect stderr to stdout as our output XML is in stdout
 		pb.redirectErrorStream(false);
 		//set the working directory to our temporary directory
-		pb.directory(new File(tempDir));
+		pb.directory(new File(gTempDir));
 		
 		//this is somewhat inelegant
 		//HACK: add the library paths to the environment
 		//This could be done by wrapping the command line
 		//But this will allow us to use shared objects on the cluster
 		//As matchbox doesn't seem to want to compile static binaries
-		pb.environment().put(libraryPath.split("=")[0], libraryPath.split("=")[1]);
+		pb.environment().put(pLibraryPath.split("=")[0], pLibraryPath.split("=")[1]);
 		
 		//start the executable
 		Process proc = pb.start();
 		//create a log of the console output
-		stdout = new BufferedReader(new InputStreamReader(proc.getInputStream()));
-		stderr = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
+		gStdout = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+		gStderr = new BufferedReader(new InputStreamReader(proc.getErrorStream()));
 		try {
 			//wait for process to end before continuing
 			proc.waitFor();
@@ -332,43 +325,44 @@ public class XMLCommandLineJob implements HadoopJob {
 	public void run() throws IOException {
 
 		//delete old log file.  special case when running this class standalone
-		if(new File(logFile).exists()) {
+		if(new File(gLogFile).exists()) {
 			System.out.println("Deleting stale log file");
-			new File(logFile).delete();
+			new File(gLogFile).delete();
 		}
 
-		//Replace all instances of WrapperSettings.XML_INPUT_REPLACEMENT with the input file
+		//Replace all instances of Settings.XML_INPUT_REPLACEMENT with the input file
 		//in the xml code
 
 		//calc checksum.  TODO: check against input file to check it is ok
-		for(String s:(xml.getInputFiles())) {
-			Tools.writeChecksumToLog(s, Tools.generateChecksum(tempDir+s), logFile);
+		for(String s:(gXml.getInputFiles())) {
+			Tools.writeChecksumToLog(s, Tools.generateChecksum(gTempDir+s), gLogFile);
 		}
 
 		List<String> commandLine = new ArrayList<String>();
-		for(String s: xml.getCommandLine().split(" ")) {
+		for(String s: gXml.getCommandLine().split(" ")) {
 			commandLine.add(s);
 		}
-		int exitCode = runCommand(commandLine, xml.getLibraryPath());
-		if(exitCode==0) success = true;
+		int exitCode = runCommand(commandLine, gXml.getLibraryPath());
+		if(exitCode==0) gSuccess = true;
 
 		BufferedWriter outputFile;
 		
-		if(xml.redirectSTDOUT()) {
+		if(gXml.redirectSTDOUT()) {
 			//store the file of the stdout console output
 			//HACK: we assume only one output file when doing this
-			outputFile = new BufferedWriter(new FileWriter(tempDir+xml.getOutputFiles()[0]));
-			Tools.writeBufferToFile(stdout, outputFile);
+			outputFile = new BufferedWriter(new FileWriter(gTempDir+gXml.getOutputFiles()[0]));
+			Tools.writeBufferToFile(gStdout, outputFile);
 			outputFile.close();
 		}
 		
 		//store the log file of the console output
-		outputFile = new BufferedWriter(new FileWriter(logFile,true));
+		outputFile = new BufferedWriter(new FileWriter(gLogFile,true));
 		//write the command line to the file
 		Tools.appendProcessInfoToLog(exitCode, commandLine, outputFile);
 		//write the log of stdout and stderr to the logfile
-		if(!xml.redirectSTDOUT) Tools.appendBufferToFile("stdout", stdout, outputFile);
-		Tools.appendBufferToFile("stderr", stderr, outputFile);
+		if(!gXml.redirectSTDOUT()) Tools.appendBufferToFile("stdout", gStdout, outputFile);
+//		if(!xml.redirectSTDOUT()) Tools.appendBufferToFile("stdout", stdout, outputFile);
+		Tools.appendBufferToFile("stderr", gStderr, outputFile);
 		outputFile.close();
 
 	}
@@ -377,7 +371,7 @@ public class XMLCommandLineJob implements HadoopJob {
 	 * Was the job successful?
 	 */
 	public boolean wasSuccessful() {
-		return success;
+		return gSuccess;
 	}	
 	
 	/**
@@ -401,6 +395,16 @@ public class XMLCommandLineJob implements HadoopJob {
 	 */
 	public static void main(String[] args) throws IOException  {
 		
+			
+			
 	}
-	
+
+	public static JobType getJobType() {
+		return JobType.XMLCommandLineJob;
+	}
+
+	public static String getShortJobType() {
+		return "XML";
+	}
+
 }

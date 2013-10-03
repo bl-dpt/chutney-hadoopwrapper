@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 The SCAPE Project Consortium
+ * Copyright 2012-2013 The SCAPE Project Consortium
  * Author: William Palmer (William.Palmer@bl.uk)
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +15,7 @@
  *   limitations under the License.
  */
 
-package eu.scape_project.tb.tavernahadoopwrapper;
+package eu.scape_project.tb.chutney;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.broker.BrokerService;
@@ -41,27 +41,27 @@ public class JMSComms {
 
 	/**
 	 * Sends a message to the ActiveMQ server
-	 * @param key key for the message (i.e. filename or hash)
-	 * @param message message to send
+	 * @param pKey key for the message (i.e. filename or hash)
+	 * @param pMessage message to send
 	 */
-	public static void sendMessage(String key, String message) {
+	public static void sendMessage(String pKey, String pMessage) {
 
 		try {
 
-			ActiveMQConnectionFactory amq = new ActiveMQConnectionFactory(WrapperSettings.ACTIVEMQ_ADDRESS);
+			ActiveMQConnectionFactory amq = new ActiveMQConnectionFactory(Settings.ACTIVEMQ_ADDRESS);
 
 			Connection conn = amq.createConnection();
 			conn.start();
 
 			Session sess = conn.createSession(false, Session.AUTO_ACKNOWLEDGE);
 
-			Destination dest = sess.createQueue(key);
+			Destination dest = sess.createQueue(pKey);
 
 			MessageProducer prod = sess.createProducer(dest);
 			//note use of persistent messages
 			prod.setDeliveryMode(DeliveryMode.PERSISTENT);
 
-			TextMessage tm = sess.createTextMessage(message);
+			TextMessage tm = sess.createTextMessage(pMessage);
 
 			//send the message
 			prod.send(tm);
@@ -78,15 +78,15 @@ public class JMSComms {
 
 	/**
 	 * Receive a message from the ActiveMQ server, associated with the key
-	 * @param key key to recover messages for
+	 * @param pKey key to recover messages for
 	 * @return message
 	 */
-	public static String receiveMessage(String key) {
+	public static String receiveMessage(String pKey) {
 		String message = null;
 		
 		try {
 
-			ActiveMQConnectionFactory amq = new ActiveMQConnectionFactory(WrapperSettings.ACTIVEMQ_ADDRESS);
+			ActiveMQConnectionFactory amq = new ActiveMQConnectionFactory(Settings.ACTIVEMQ_ADDRESS);
 
 			Connection conn = amq.createConnection();
 			conn.start();
@@ -95,7 +95,7 @@ public class JMSComms {
 
 			Session sess = conn.createSession(false, Session.AUTO_ACKNOWLEDGE);
 
-			Destination dest = sess.createQueue(key);
+			Destination dest = sess.createQueue(pKey);
 
 			MessageConsumer cons = sess.createConsumer(dest);
 
@@ -125,14 +125,14 @@ public class JMSComms {
 	/**
 	 * Delete the message queue from the ActiveMQ server
 	 * (Note: this does not work at the moment)
-	 * @param key Key for the queue to delete
+	 * @param pKey Key for the queue to delete
 	 */
-	public static void deleteQueue(String key) {
+	public static void deleteQueue(String pKey) {
 		
 		try {
 
 			BrokerView bv = new BrokerService().getAdminView();
-			bv.removeQueue(key);
+			bv.removeQueue(pKey);
 
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
