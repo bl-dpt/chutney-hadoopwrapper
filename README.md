@@ -1,4 +1,4 @@
-Chutney v0.8
+Chutney v0.9
 ============
 
 This project is (c) 2012, 2013 The SCAPE Project Consortium, see LICENSE.txt

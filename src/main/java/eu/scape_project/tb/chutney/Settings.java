@@ -55,7 +55,7 @@ public final class Settings {
 	/**
 	 * Version number
 	 */
-	public static final double VERSION = 0.8;
+	public static final double VERSION = 0.9;
 	
 	//command line settings
 	/**

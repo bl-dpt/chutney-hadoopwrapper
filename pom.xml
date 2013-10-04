@@ -4,7 +4,7 @@
 	<groupId>eu.scape-project.tb</groupId>
 	<artifactId>chutney</artifactId>
 	<packaging>jar</packaging>
-	<version>0.9.0-SNAPSHOT</version>
+	<version>0.9-SNAPSHOT</version>
 	<name>chutney</name>
 	<url>http://www.scape-project.eu</url>
 	<repositories>
